@@ -1,5 +1,6 @@
 import pickle
 import typing
+import inspect
 
 import matplotlib.pyplot as plt
 import numba as nb
@@ -235,6 +236,8 @@ class Predictor:
         max_test_samples: int = -1,
         verbose: bool = False,
         empirical_variogram_path: typing.Optional[str] = None,
+        cv_split: typing.Optional[typing.Callable
+                                  ] = sklearn.model_selection.TimeSeriesSplit,
     ):
         """Calculate cross validation results for the predictor.
         Can be used with the covariate model, kriging, or both.
@@ -255,8 +258,18 @@ class Predictor:
             If set, empirical variogram will be read from file instead of
             calculated for every cross validation split (only relevant for
             `kriging==True`), by default None
+        cv_split : CV split function, optional
+            Determines how the data is split into training and testing sets
+            during cross-validation. Expects sklearn.model_selection functions
+            or compatible API. For extrapolation, use TimeSeriesSplit,
+            otherwise e.g. ShuffleSplit, depending on the problem. Uses the
+            number of CV splits passed to init if possible. By default
+            sklearn.model_selection.TimeSeriesSplit
         """
-        cv = sklearn.model_selection.TimeSeriesSplit(n_splits=self._cv_splits)
+        if "n_splits" in inspect.signature(cv_split).parameters:
+            cv = cv_split(n_splits=self._cv_splits)
+        else:
+            cv = cv_split()
         ground_truth_list = []
         prediction_list = []
         for fold, (train, test) in enumerate(cv.split(self._X, self._y)):
